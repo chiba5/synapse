@@ -26,6 +26,9 @@ jobs:
 
       - name: Build for Cloudflare Pages
         run: npm run pages:build
+        env:
+          VERCEL_ORG_ID: dummy-org
+          VERCEL_PROJECT_ID: dummy-project
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
