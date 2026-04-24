@@ -1,0 +1,5 @@
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
+TEAM_DOMAIN=https://<team>.cloudflareaccess.com
+ACCESS_AUD=<application-audience-tag>
+DEV_USER_EMAIL=chuangtaiqianye@gmail.com
