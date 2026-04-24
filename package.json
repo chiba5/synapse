@@ -31,6 +31,6 @@
     "serwist": "^9.5.7",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vercel": "^47.1.4"
+    "vercel": "^47.0.4"
   }
 }
