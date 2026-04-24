@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "pages:build": "vercel build && npx @cloudflare/next-on-pages --skip-build",
+    "pages:build": "next build && npx @cloudflare/next-on-pages --skip-build",
     "preview": "wrangler pages dev .vercel/output/static --compatibility-flag nodejs_compat",
     "deploy": "wrangler pages deploy .vercel/output/static --project-name synapse"
   },
@@ -30,7 +30,6 @@
     "eslint-config-next": "^15.5.2",
     "serwist": "^9.5.7",
     "tailwindcss": "^4",
-    "typescript": "^5",
-    "vercel": "^47.0.4"
+    "typescript": "^5"
   }
 }
