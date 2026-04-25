@@ -1,5 +1,5 @@
-SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_URL=https://piuthseepzqggkrdsdyd.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
-TEAM_DOMAIN=https://<team>.cloudflareaccess.com
-ACCESS_AUD=<application-audience-tag>
+TEAM_DOMAIN=https://chiba5.cloudflareaccess.com
+ACCESS_AUD=ae3c0c7fa44ea007aa64fe820627ac942f69c5e65d1ce05d77ab68e3eeb28934
 DEV_USER_EMAIL=chuangtaiqianye@gmail.com
