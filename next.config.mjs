@@ -2,7 +2,8 @@ import { setupDevPlatform } from '@cloudflare/next-on-pages/next-dev';
 import withSerwistInit from '@serwist/next';
 
 if (process.env.NODE_ENV === 'development') {
-  await setupDevPlatform();
+  // fire-and-forget: Windows では await すると hang することがある
+  setupDevPlatform().catch(() => {});
 }
 
 const withSerwist = withSerwistInit({
