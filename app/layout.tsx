@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import Nav from './_components/Nav';
