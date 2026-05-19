@@ -104,24 +104,44 @@ Synapse は**共有ワークスペース**。exoskeleton の設計資料・進�
 - **本番ビルド**: GitHub push → Cloudflare Pages が Linux でビルド・デプロイ（これが主ルート）
 - **Windows でも動かしたい場合**: 設定 → システム → 開発者向け → 「開発者モード」ON でシンボリックリンク権限が付く
 
-## 実装状況（2026-04-25 時点）
+### ローカル開発の環境変数（重要）
+
+`npm run dev` は `.dev.vars` を読まない（wrangler Pages 専用）。ローカル開発には `.env.local` が必要。
+
+```bash
+cp .dev.vars.example .env.local   # 初回のみ
+npm run dev
+```
+
+- `.env.local` は `.gitignore` 済み（`.env*` パターン）
+- `setupDevPlatform()` は Windows で `await` すると hang する → `next.config.mjs` で fire-and-forget 化済み
+- `getServiceClient()` は `getRequestContext()` → `process.env` の順でフォールバック
+
+### サーバー/クライアント境界のルール
+
+- サーバーコンポーネントからクライアントコンポーネントの型を直接 import すると `InvariantError: clientReferenceManifest` が出る
+- 共有型は `types.ts` に分離してどちらからも import する（`DailyReportsFeed` / `types.ts` の構成を参照）
+
+## 実装状況（2026-05-19 時点）
+
+### next-on-pages の既知の落とし穴
+- `app/favicon.ico` は Next.js App Router の Metadata Route として処理される → `next-on-pages` がルート `/` を favicon の静的ファイルにマッピングするバグが発生する
+- **対策**: favicon は `app/` でなく `public/` に置く（`public/favicon.ico`）
+- `app/layout.tsx` には必ず `export const runtime = 'edge'` が必要
 
 ### 完了済み
 - **GitHub**: `chiba5/synapse` (private) 作成・push 済み
 - **Cloudflare Pages**: `synapse-9dv.pages.dev` 稼働中（master push で自動ビルド）
-- **CF Zero Trust / Access Application**: API 経由で作成済み
-  - App ID: `e32c99a7-9038-492c-940a-a0e4f48d0a86`
-  - AUD: `ae3c0c7fa44ea007aa64fe820627ac942f69c5e65d1ce05d77ab68e3eeb28934`
-  - Policy: `chuangtaiqianye@gmail.com` Allow
-- **CF Pages 環境変数**: `TEAM_DOMAIN` / `ACCESS_AUD` 設定済み（API 経由）
+- **CF Zero Trust / Access Application**: 設定済み（Google OAuth IdP 登録・Policy 設定含む）
+- **CF Pages 環境変数**: `TEAM_DOMAIN` / `ACCESS_AUD` / `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` 設定済み
 - **Supabase プロジェクト**: ref `piuthseepzqggkrdsdyd`（Tokyo）、初期 schema migration 適用済み
-- **`.dev.vars`**: `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` 設定済み（ローカルのみ）
-- `npm run dev` で `http://localhost:3000` 正常表示確認済み
+- **Phase 0 完了**（認証・DB・プロフィール upsert・PWA 基盤）
+- **Day 4 完了**（2026-05-19）: 日報 GET/POST API・cursor pagination・is_read JOIN・フィードページ・既読マーク・Nav・`lib/auth.ts`
+- **Phase 1 notes 完了**（2026-05-19）: `/notes` ページ（タイトル任意・本文必須、一覧・投稿・既読）
+- **本番動作確認済み**（2026-05-19）: Home・日報・ノート 全ページ稼働確認
 
-### 未完了
-- **CF Pages に Supabase 環境変数追加**: ブラウザで CF Pages → `synapse` → Settings → Environment variables に `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` を追加（本番デプロイで必要）
-- **Day 3**: 日報投稿・note・既読の実装（Phase 0 コア機能）
-- **齋藤蓮 collaborator 招待**: CF Access に齋藤蓮のメールを追加（Day 8 以降）
+### 次の実装（Phase 1 残り）
+- **齋藤蓮 CF Access 招待**: Zero Trust → synapse App → Edit Policy → メール追加
 
 ---
 
