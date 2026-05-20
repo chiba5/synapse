@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+**/node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -51,3 +51,13 @@ public/swe-worker-*.js
 
 # secrets
 .dev.vars
+
+# claude code / tools
+.claude/
+.playwright-mcp/
+
+# screenshots
+daily-reports-*.png
+
+# supabase temp
+supabase/.temp/

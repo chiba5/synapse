@@ -11,6 +11,12 @@ export async function middleware(req: NextRequest) {
     return res;
   }
 
+  // ローカル agent 専用 API: CF Access JWT ではなく独自 token 認証に委ねる
+  const path = req.nextUrl.pathname;
+  if (path.startsWith('/api/ingest') || path.startsWith('/api/jobs')) {
+    return NextResponse.next();
+  }
+
   const token = req.headers.get('cf-access-jwt-assertion');
   if (!token) {
     return new NextResponse('Unauthorized', { status: 403 });

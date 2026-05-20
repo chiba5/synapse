@@ -20,16 +20,27 @@
 
 ---
 
-## Phase 分割（MVP → 差別化）
+## Synapse = 「外部脳」の 3 層モデル（2026-05-20 確定）
 
-全部盛りで始めると完成しないので段階分割する。Phase 0 を 2 週間で出して毎日使ってみて、使用感で Phase 1 以降の優先順位を見直す流れ。
+**Input → Store → Output** の一本パイプラインとして設計する。
 
-| Phase | 機能 | 狙い |
+| 層 | 役割 | 具体機能 |
 |---|---|---|
-| **0** | 認証・日報投稿・note・既読 | 毎日触る最小面を作る |
-| **1** | 雑多 inbox・タスク管理 | 運用定着 |
-| **2** | AI ニュース自動収集（RSS/arxiv/HN/X → Claude API 要約） | 差別化機能の目玉 |
-| **3** | 資料共有・週次 AI ダイジェスト（日報 + note を Claude で要約） | 長期運用効く層 |
+| **Input** | 受動的情報摂取 | X 自動収集・RSS/WebSearch・Claude 要約・分類 |
+| **Store** | 蓄積基盤 | 日報・notes・アイデア/思想・進捗 mirror・共有資料 |
+| **Output** | 昇華 | 蓄積素材を Claude API で再加工→アウトプット |
+
+## Phase 分割（確定版 2026-05-20）
+
+| Phase | 状態 | 機能 | 狙い |
+|---|---|---|---|
+| **0** | ✅ | 認証・基盤・PWA | Store に触れる土台 |
+| **1** | ✅ | 日報・notes・既読 | Store 最小面（毎日使える） |
+| **2** | **進行中** | **Input 層 v1 + 自動試行（承認制）** | X(hermes) + RSS/WebSearch → Claude 要約・分類 → `/morning` フィード → 「試す」承認 → ローカル Claude Code 実行 |
+| **3** | | Claude Code 進捗 mirror | 各プロジェクト wrap-up を vault 経由で Synapse に取り込み |
+| **4** | | Store 拡張 | アイデア/思想 stock、タグ、検索（Output への土台） |
+| **5** | | 共有ファイル（R2） | 二人で同じ素材を参照 |
+| **6** | | Output 層 v1（昇華 UI） | 蓄積素材を Claude API で再加工→アウトプット |
 
 ### 採用した機能（ユーザー確認済み 2026-04-24）
 
@@ -46,7 +57,7 @@
 - **ホスティング**：Cloudflare Pages
 - **DB**：Cloudflare D1（web-app/pokerops の Supabase より単純なので D1 推し、pokerops との一貫性優先なら Supabase も選択肢）
 - **ファイル**：Cloudflare R2（資料共有 Phase 3 用）
-- **AI ニュース cron**：Cloudflare Workers Cron Triggers + Anthropic SDK
+- **AI ニュース cron**：ローカル PC 常駐の `scripts/synapse-agent`（Node.js + Windows Task Scheduler）。hermes-x-search MCP で X 収集 → Synapse Edge runtime 経由で Anthropic SDK 呼び出し（Cloudflare Workers Cron Triggers は不採用）
 - **認証**：Cloudflare Access (Google OAuth) か magic link。二人だけ許可、将来招待で拡張可
 - **ドメイン**：初期は `<project>.pages.dev` サブドメイン、本格運用時に独自ドメイン検討
 
@@ -122,7 +133,7 @@ npm run dev
 - サーバーコンポーネントからクライアントコンポーネントの型を直接 import すると `InvariantError: clientReferenceManifest` が出る
 - 共有型は `types.ts` に分離してどちらからも import する（`DailyReportsFeed` / `types.ts` の構成を参照）
 
-## 実装状況（2026-05-19 時点）
+## 実装状況（2026-05-20 時点）
 
 ### next-on-pages の既知の落とし穴
 - `app/favicon.ico` は Next.js App Router の Metadata Route として処理される → `next-on-pages` がルート `/` を favicon の静的ファイルにマッピングするバグが発生する
@@ -140,8 +151,22 @@ npm run dev
 - **Phase 1 notes 完了**（2026-05-19）: `/notes` ページ（タイトル任意・本文必須、一覧・投稿・既読）
 - **本番動作確認済み**（2026-05-19）: Home・日報・ノート 全ページ稼働確認
 
-### 次の実装（Phase 1 残り）
-- **齋藤蓮 CF Access 招待**: Zero Trust → synapse App → Edit Policy → メール追加
+### 齋藤蓮 CF Access 招待
+完了（2026-05-19）。"Allow Team" ポリシー（chuangtaiqianye@gmail.com + anikimcrenn@gmail.com）に更新済み。
+
+### Phase 2 実装（2026-05-20 着手）
+
+**追加ファイル一覧**:
+- `supabase/migrations/20260520000000_feed.sql` — `feed_items`, `try_jobs`, `reads` CHECK 拡張
+- `app/morning/{page.tsx, MorningFeed.tsx, types.ts}` — 朝フィードページ（notes 複製）
+- `app/api/morning/{route.ts, [id]/read/route.ts, [id]/try/route.ts}` — フィード API + 試行承認
+- `app/api/ingest/route.ts` — ローカル agent からの収集結果受け取り（Service Token 認証）
+- `app/api/jobs/pending/route.ts`, `app/api/jobs/[id]/complete/route.ts` — 試行ジョブキュー
+- `lib/anthropic.ts` — 要約 + カテゴリ判定 helper（1 呼び出しで両方）
+- `lib/service-auth.ts` — CF Access Service Token 認証ミドルウェア
+- `scripts/synapse-agent/{package.json, index.ts, collect.ts, poll-jobs.ts}` — ローカル収集 + 試行 agent
+
+**sources**: `vault/ai-digest/sources.md`（RSS 10 本 + WebSearch クエリ 5 個）を移植。`vault/ai-digest/` は移植完了後 archive。
 
 ---
 
