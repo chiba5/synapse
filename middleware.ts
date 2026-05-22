@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 
-export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'] };
+export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|api/ingest|api/jobs).*)'] };
 
 export async function middleware(req: NextRequest) {
   if (process.env.NODE_ENV === 'development') {
