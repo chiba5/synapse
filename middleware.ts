@@ -12,7 +12,7 @@ export async function middleware(req: NextRequest) {
   }
 
   // ローカル agent 専用 API: CF Access JWT ではなく独自 token 認証に委ねる
-  const path = req.nextUrl.pathname;
+  const path = new URL(req.url).pathname;
   if (path.startsWith('/api/ingest') || path.startsWith('/api/jobs')) {
     return NextResponse.next();
   }
