@@ -19,7 +19,7 @@ export async function middleware(req: NextRequest) {
 
   const token = req.headers.get('cf-access-jwt-assertion');
   if (!token) {
-    return new NextResponse('Unauthorized', { status: 403 });
+    return new NextResponse(`Unauthorized|url=${req.url}`, { status: 418 });
   }
 
   const teamDomain = process.env.TEAM_DOMAIN!;
