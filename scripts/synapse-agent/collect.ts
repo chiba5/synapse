@@ -2,8 +2,9 @@ import { spawnSync } from 'child_process';
 import { XMLParser } from 'fast-xml-parser';
 import { RSS_SOURCES, GITHUB_SOURCES, X_QUERIES } from './sources.js';
 
-const SYNAPSE_URL = process.env.SYNAPSE_URL ?? 'http://localhost:3000';
-const AGENT_TOKEN = process.env.AGENT_TOKEN ?? '';
+const SUPABASE_URL = process.env.SUPABASE_URL ?? '';
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY ?? '';
 const HOURS_BACK = parseInt(process.env.HOURS_BACK ?? '24', 10);
 
 type IngestItem = {
@@ -13,13 +14,18 @@ type IngestItem = {
   body?: string;
 };
 
+type Classification = {
+  summary: string;
+  category: 'practical' | 'knowledge' | 'claude_runnable';
+  claude_runnable: boolean;
+};
+
 const xmlParser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
 
 function cutoffMs(): number {
   return Date.now() - HOURS_BACK * 60 * 60 * 1000;
 }
 
-// RSS 2.0 と Atom の両方に対応
 async function fetchRss(url: string): Promise<IngestItem[]> {
   const res = await fetch(url, {
     headers: { 'User-Agent': 'synapse-agent/0.1' },
@@ -30,7 +36,6 @@ async function fetchRss(url: string): Promise<IngestItem[]> {
   const doc = xmlParser.parse(xml);
   const cutoff = cutoffMs();
 
-  // RSS 2.0
   if (doc.rss?.channel?.item) {
     const raw = doc.rss.channel.item;
     const items: unknown[] = Array.isArray(raw) ? raw : [raw];
@@ -51,7 +56,6 @@ async function fetchRss(url: string): Promise<IngestItem[]> {
       });
   }
 
-  // Atom
   if (doc.feed?.entry) {
     const raw = doc.feed.entry;
     const entries: unknown[] = Array.isArray(raw) ? raw : [raw];
@@ -112,7 +116,6 @@ async function fetchGithub(url: string): Promise<IngestItem[]> {
     }));
 }
 
-// `claude -p` サブプロセスで hermes-x-search を使って X を検索
 function searchX(query: string): IngestItem[] {
   const prompt =
     `hermes-x-search ツールで次のクエリを検索し、JSONのみ返してください（説明不要）。\n` +
@@ -120,7 +123,6 @@ function searchX(query: string): IngestItem[] {
     `返却形式: [{"title":"タイトル","url":"https://...","snippet":"概要"}]\n` +
     `結果がなければ [] を返してください。`;
 
-  // Windows では shell:true が必要（claude.cmd を実行するため）
   const result = spawnSync('claude', ['-p', prompt], {
     shell: true,
     encoding: 'utf-8',
@@ -147,17 +149,89 @@ function searchX(query: string): IngestItem[] {
   }
 }
 
-async function postIngest(items: IngestItem[]) {
-  const res = await fetch(`${SYNAPSE_URL}/api/ingest`, {
+async function classify(item: IngestItem): Promise<Classification> {
+  const excerpt = (item.body ?? '').slice(0, 500);
+  const prompt = `以下のAI・技術ニュース記事を2〜3文で日本語要約し、カテゴリを判定してください。
+
+タイトル: ${item.title}
+URL: ${item.source_url ?? 'N/A'}
+本文（抜粋）: ${excerpt}
+
+以下のJSONのみ返してください（他のテキスト不要）:
+{"summary":"2〜3文の日本語要約","category":"practical|knowledge|claude_runnable","claude_runnable":true|false}
+
+カテゴリ定義:
+- practical: 実務・開発ですぐ使える（APIリリース、ツール公開など）
+- claude_runnable: Claude Codeで今すぐ試せる実装例・コード・機能
+- knowledge: 知識・トレンド・研究として知っておくべき内容`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Agent-Token': AGENT_TOKEN,
+      'x-api-key': ANTHROPIC_KEY,
+      'anthropic-version': '2023-06-01',
     },
-    body: JSON.stringify({ items }),
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 400,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+    signal: AbortSignal.timeout(15_000),
   });
-  if (!res.ok) throw new Error(`ingest HTTP ${res.status}`);
-  return (await res.json()) as { saved: number; failed: number };
+
+  if (!res.ok) {
+    return { summary: item.title, category: 'knowledge', claude_runnable: false };
+  }
+
+  const data = await res.json() as { content: Array<{ type: string; text: string }> };
+  const text = data.content?.[0]?.type === 'text' ? data.content[0].text : '';
+
+  try {
+    const parsed = JSON.parse(text);
+    const validCategories = ['practical', 'knowledge', 'claude_runnable'];
+    return {
+      summary: String(parsed.summary ?? ''),
+      category: (validCategories.includes(parsed.category) ? parsed.category : 'knowledge') as Classification['category'],
+      claude_runnable: Boolean(parsed.claude_runnable),
+    };
+  } catch {
+    return { summary: item.title, category: 'knowledge', claude_runnable: false };
+  }
+}
+
+async function upsertItem(item: IngestItem, cl: Classification): Promise<'saved' | 'skipped' | 'error'> {
+  const record = {
+    source: item.source,
+    source_url: item.source_url ?? null,
+    title: item.title,
+    body: item.body ?? null,
+    summary: cl.summary,
+    category: cl.category,
+    claude_runnable: cl.claude_runnable,
+  };
+
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/feed_items?on_conflict=source_url`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Prefer': 'resolution=ignore-duplicates,return=minimal',
+      },
+      body: JSON.stringify(record),
+      signal: AbortSignal.timeout(10_000),
+    }
+  );
+
+  if (!res.ok) {
+    console.warn(`  [db] upsert failed ${res.status}: ${await res.text()}`);
+    return 'error';
+  }
+  // 201 = inserted, 200 = ignored duplicate
+  return res.status === 201 ? 'saved' : 'skipped';
 }
 
 export async function runCollect() {
@@ -206,13 +280,19 @@ export async function runCollect() {
   console.log(`[collect] ${all.length} raw → ${deduped.length} unique`);
   if (deduped.length === 0) { console.log('[collect] Nothing to ingest'); return; }
 
-  // 20 件ずつバッチ POST
-  let totalSaved = 0, totalFailed = 0;
-  for (let i = 0; i < deduped.length; i += 20) {
-    const batch = deduped.slice(i, i + 20);
-    const { saved, failed } = await postIngest(batch);
-    totalSaved += saved; totalFailed += failed;
-    console.log(`  [ingest] batch ${Math.floor(i/20)+1}: saved=${saved} failed=${failed}`);
+  let saved = 0, skipped = 0, failed = 0;
+  for (const item of deduped) {
+    try {
+      const cl = await classify(item);
+      const result = await upsertItem(item, cl);
+      if (result === 'saved') saved++;
+      else if (result === 'skipped') skipped++;
+      else failed++;
+    } catch (e) {
+      console.warn(`  [error] "${item.title.slice(0, 40)}": ${String(e)}`);
+      failed++;
+    }
   }
-  console.log(`[collect] Done — saved=${totalSaved} failed=${totalFailed}`);
+
+  console.log(`[collect] Done — saved=${saved} skipped=${skipped} failed=${failed}`);
 }
