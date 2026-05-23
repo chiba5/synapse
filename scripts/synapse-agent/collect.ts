@@ -6,6 +6,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL ?? '';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY ?? '';
 const HOURS_BACK = parseInt(process.env.HOURS_BACK ?? '24', 10);
+const ENABLE_X_SEARCH = process.env.ENABLE_X_SEARCH === 'true';
 
 type IngestItem = {
   source: 'rss' | 'web_search' | 'x';
@@ -258,7 +259,11 @@ export async function runCollect() {
     }
   }
 
-  for (const query of X_QUERIES) {
+  if (!ENABLE_X_SEARCH) {
+    console.log('  [x] skipped (ENABLE_X_SEARCH=true で有効化)');
+  }
+
+  for (const query of ENABLE_X_SEARCH ? X_QUERIES : []) {
     try {
       const items = searchX(query);
       console.log(`  [x] "${query.slice(0, 40)}": ${items.length} items`);
