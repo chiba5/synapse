@@ -1,6 +1,5 @@
-import 'dotenv/config';
-import { runCollect } from './collect.js';
-import { runPollJobs } from './poll-jobs.js';
+import { config } from 'dotenv';
+config({ override: true });
 
 const mode = process.argv.find(a => a.startsWith('--mode='))?.split('=')[1];
 
@@ -10,8 +9,10 @@ if (!mode) {
 }
 
 if (mode === 'collect') {
+  const { runCollect } = await import('./collect.js');
   await runCollect().catch(e => { console.error(e); process.exit(1); });
 } else if (mode === 'poll-jobs') {
+  const { runPollJobs } = await import('./poll-jobs.js');
   await runPollJobs();
 } else {
   console.error(`Unknown mode: ${mode}`);

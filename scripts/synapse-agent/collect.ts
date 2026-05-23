@@ -213,30 +213,31 @@ async function upsertItem(item: IngestItem, cl: Classification): Promise<'saved'
   };
 
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/feed_items?on_conflict=source_url`,
+    `${SUPABASE_URL}/rest/v1/feed_items`,
     {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'apikey': SUPABASE_KEY,
         'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Prefer': 'resolution=ignore-duplicates,return=minimal',
+        'Prefer': 'return=minimal',
       },
       body: JSON.stringify(record),
       signal: AbortSignal.timeout(10_000),
     }
   );
 
+  if (res.status === 409) return 'skipped'; // duplicate source_url
   if (!res.ok) {
-    console.warn(`  [db] upsert failed ${res.status}: ${await res.text()}`);
+    console.warn(`  [db] insert failed ${res.status}: ${await res.text()}`);
     return 'error';
   }
-  // 201 = inserted, 200 = ignored duplicate
-  return res.status === 201 ? 'saved' : 'skipped';
+  return 'saved';
 }
 
 export async function runCollect() {
   console.log(`[collect] Starting — ${new Date().toISOString()}`);
+
   const all: IngestItem[] = [];
 
   for (const src of RSS_SOURCES) {
