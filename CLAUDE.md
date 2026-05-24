@@ -139,6 +139,13 @@ npm run dev
 - `app/favicon.ico` は Next.js App Router の Metadata Route として処理される → `next-on-pages` がルート `/` を favicon の静的ファイルにマッピングするバグが発生する
 - **対策**: favicon は `app/` でなく `public/` に置く（`public/favicon.ico`）
 - `app/layout.tsx` には必ず `export const runtime = 'edge'` が必要
+- `tsconfig.json` の `include: ["**/*.ts"]` は `scripts/synapse-agent/` も拾う → CF Pages ビルドが agent 依存パッケージ（fast-xml-parser 等）を見つけられず失敗する → `exclude` に `"scripts/synapse-agent"` を追加（確定 2026-05-24）
+
+### CF Access と XHR/fetch の落とし穴（重要）
+- CF Access はブラウザのナビゲーションリクエストには `cf-access-jwt-assertion` ヘッダーを付けるが、**client component からの fetch/XHR には付けない**
+- ブラウザは `CF_Authorization` クッキーを同一オリジン fetch で送るが、CF Access がそれをヘッダーに変換しない
+- **対策**: `middleware.ts` で `cf-access-jwt-assertion` ヘッダーが無い場合は `CF_Authorization` クッキーの値にフォールバックする（`req.cookies.get('CF_Authorization')?.value`）
+- 同じ JWKS（`${teamDomain}/cdn-cgi/access/certs`）で両方検証できる（確定 2026-05-24）
 
 ### 完了済み
 - **GitHub**: `chiba5/synapse` (private) 作成・push 済み
@@ -150,6 +157,7 @@ npm run dev
 - **Day 4 完了**（2026-05-19）: 日報 GET/POST API・cursor pagination・is_read JOIN・フィードページ・既読マーク・Nav・`lib/auth.ts`
 - **Phase 1 notes 完了**（2026-05-19）: `/notes` ページ（タイトル任意・本文必須、一覧・投稿・既読）
 - **本番動作確認済み**（2026-05-19）: Home・日報・ノート 全ページ稼働確認
+- **Phase 2 完了**（2026-05-24）: `/morning` フィード（48件表示・既読化）・synapse-agent（collect / poll-jobs）・Task Scheduler（毎朝 06:00 collect / at logon poll-jobs）・vault/ai-digest archive
 
 ### 齋藤蓮 CF Access 招待
 完了（2026-05-19）。"Allow Team" ポリシー（chuangtaiqianye@gmail.com + anikimcrenn@gmail.com）に更新済み。
