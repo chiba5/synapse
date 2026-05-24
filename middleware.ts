@@ -17,7 +17,10 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = req.headers.get('cf-access-jwt-assertion');
+  // CF Access adds the JWT as a header for navigation requests, but for
+  // AJAX/fetch requests it may only set the CF_Authorization cookie instead.
+  const token = req.headers.get('cf-access-jwt-assertion')
+    || req.cookies.get('CF_Authorization')?.value;
   if (!token) {
     return new NextResponse('Unauthorized', { status: 403 });
   }
