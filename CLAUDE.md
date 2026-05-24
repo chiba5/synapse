@@ -57,7 +57,7 @@
 - **ホスティング**：Cloudflare Pages
 - **DB**：Cloudflare D1（web-app/pokerops の Supabase より単純なので D1 推し、pokerops との一貫性優先なら Supabase も選択肢）
 - **ファイル**：Cloudflare R2（資料共有 Phase 3 用）
-- **AI ニュース cron**：ローカル PC 常駐の `scripts/synapse-agent`（Node.js + Windows Task Scheduler）。hermes-x-search MCP で X 収集 → Synapse Edge runtime 経由で Anthropic SDK 呼び出し（Cloudflare Workers Cron Triggers は不採用）
+- **AI ニュース cron**：ローカル PC 常駐の `scripts/synapse-agent`（Node.js + Windows Task Scheduler）。hermes-x-search MCP で X 収集 → Anthropic SDK で要約・分類 → Supabase 直書き（CF Access バイパス済み、Cloudflare Workers Cron Triggers は不採用）
 - **認証**：Cloudflare Access (Google OAuth) か magic link。二人だけ許可、将来招待で拡張可
 - **ドメイン**：初期は `<project>.pages.dev` サブドメイン、本格運用時に独自ドメイン検討
 
