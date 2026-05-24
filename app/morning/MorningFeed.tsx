@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { usePaginatedFeed } from '@/lib/hooks/usePaginatedFeed';
+import { TweetEmbed, extractTweetId } from '@/components/TweetEmbed';
 import type { FeedItem, Profile } from './types';
 
 const SOURCE_LABELS: Record<FeedItem['source'], string> = {
@@ -114,24 +115,32 @@ export default function MorningFeed({
                 </time>
               </div>
 
-              <div>
-                {item.source_url ? (
-                  <a
-                    href={item.source_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={e => e.stopPropagation()}
-                    className="text-sm font-semibold hover:underline"
-                  >
-                    {item.title}
-                  </a>
-                ) : (
-                  <p className="text-sm font-semibold">{item.title}</p>
-                )}
-              </div>
+              {item.source === 'x' && item.source_url && extractTweetId(item.source_url) ? (
+                <div onClick={e => e.stopPropagation()}>
+                  <TweetEmbed url={item.source_url} />
+                </div>
+              ) : (
+                <>
+                  <div>
+                    {item.source_url ? (
+                      <a
+                        href={item.source_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="text-sm font-semibold hover:underline"
+                      >
+                        {item.title}
+                      </a>
+                    ) : (
+                      <p className="text-sm font-semibold">{item.title}</p>
+                    )}
+                  </div>
 
-              {item.summary && (
-                <p className="text-sm text-muted-foreground leading-relaxed">{item.summary}</p>
+                  {item.summary && (
+                    <p className="text-sm text-muted-foreground leading-relaxed">{item.summary}</p>
+                  )}
+                </>
               )}
 
               {item.claude_runnable && (
