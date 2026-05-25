@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { Brain } from 'lucide-react';
 
 const links = [
+  { href: '/chat', label: 'Chat' },
   { href: '/morning', label: 'Morning' },
   { href: '/daily-reports', label: '日報' },
   { href: '/notes', label: 'ノート' },

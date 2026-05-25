@@ -3,11 +3,12 @@ import { ensureProfile } from '@/lib/profiles';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Newspaper, BookOpen, Sun } from 'lucide-react';
+import { Newspaper, BookOpen, Sun, MessageSquare } from 'lucide-react';
 
 export const runtime = 'edge';
 
 const quickLinks = [
+  { href: '/chat', label: 'Chat', desc: '蓮とメッセージ', icon: MessageSquare },
   { href: '/morning', label: 'Morning Feed', desc: 'AI ニュースを確認', icon: Sun },
   { href: '/daily-reports', label: '日報', desc: '今日の進捗を記録', icon: Newspaper },
   { href: '/notes', label: 'ノート', desc: 'アイデアをメモ', icon: BookOpen },
@@ -27,7 +28,7 @@ export default async function Home() {
           </p>
         )}
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-xl">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full max-w-2xl">
         {quickLinks.map(({ href, label, desc, icon: Icon }) => (
           <Button key={href} variant="outline" className="h-auto p-0" asChild>
             <Link href={href}>
