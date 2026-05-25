@@ -177,7 +177,7 @@ export default function ChatRoom({
           value={body}
           onChange={e => setBody(e.target.value)}
           onKeyDown={handleKeyDown}
-          disabled={sending}
+          disabled={sending || uploading}
           rows={1}
         />
         <Button

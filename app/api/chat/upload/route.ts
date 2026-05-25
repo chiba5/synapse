@@ -31,8 +31,9 @@ export async function POST(req: Request) {
 
   // R2_PUBLIC_URL: CF Pages 環境変数に設定（バケットを公開後）
   // 例: https://pub-<hash>.r2.dev または CF Workers カスタムドメイン
-  const baseUrl = (env['R2_PUBLIC_URL'] as string | undefined)?.replace(/\/$/, '') ?? '';
-  const fileUrl = baseUrl ? `${baseUrl}/${key}` : key;
+  const baseUrl = (env['R2_PUBLIC_URL'] as string | undefined)?.replace(/\/$/, '');
+  if (!baseUrl) return new Response('R2_PUBLIC_URL not configured', { status: 503 });
+  const fileUrl = `${baseUrl}/${key}`;
 
   return Response.json({
     file_url: fileUrl,

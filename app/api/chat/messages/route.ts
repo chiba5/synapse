@@ -1,12 +1,11 @@
 import { getServiceClient } from '@/lib/supabase';
-import { getCurrentEmail } from '@/lib/user';
 import { getAuth } from '@/lib/auth';
 
 export const runtime = 'edge';
 
 export async function GET(req: Request) {
-  const email = await getCurrentEmail().catch(() => null);
-  if (!email) return new Response('Unauthorized', { status: 401 });
+  const auth = await getAuth().catch(() => null);
+  if (!auth) return new Response('Unauthorized', { status: 401 });
 
   const url = new URL(req.url);
   const channelId = url.searchParams.get('channel_id');
