@@ -11,7 +11,7 @@ INSERT INTO channels (name) VALUES ('general');
 CREATE TABLE messages (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   channel_id   UUID NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
-  sender_email TEXT NOT NULL,
+  sender_id    UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   body         TEXT,
   file_url     TEXT,
   file_name    TEXT,
