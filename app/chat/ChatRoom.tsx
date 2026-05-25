@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import useSWR from 'swr';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Send } from 'lucide-react';
+import { Send, Paperclip } from 'lucide-react';
 import type { Channel, Message } from './types';
 
 const fetcher = (url: string): Promise<Message[]> =>
@@ -25,7 +25,9 @@ export default function ChatRoom({
   const [allMessages, setAllMessages] = useState<Message[]>(initialMessages);
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: polled } = useSWR<Message[]>(
     `/api/chat/messages?channel_id=${channel.id}`,
@@ -74,6 +76,32 @@ export default function ChatRoom({
       sendMessage(e as unknown as React.FormEvent);
     }
   }, [sendMessage]);
+
+  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const uploadRes = await fetch('/api/chat/upload', { method: 'POST', body: fd });
+      if (!uploadRes.ok) throw new Error('upload failed');
+      const { file_url, file_name, file_size } = await uploadRes.json();
+      const msgRes = await fetch('/api/chat/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel_id: channel.id, file_url, file_name, file_size }),
+      });
+      if (!msgRes.ok) throw new Error('message failed');
+      const msg: Message = await msgRes.json();
+      setAllMessages(prev => [...prev, msg]);
+    } catch {
+      toast.error('ファイルの送信に失敗しました');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }, [channel.id]);
 
   return (
     <div className="flex flex-col flex-1 h-full min-h-0">
@@ -127,6 +155,22 @@ export default function ChatRoom({
 
       {/* 入力欄 */}
       <form onSubmit={sendMessage} className="border-t p-3 flex gap-2 items-end shrink-0">
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-10 px-2 shrink-0"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading || sending}
+        >
+          <Paperclip className="h-4 w-4" />
+        </Button>
         <textarea
           className="flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring min-h-[40px] max-h-[120px]"
           placeholder="メッセージを入力… (Enter で送信 / Shift+Enter で改行)"
