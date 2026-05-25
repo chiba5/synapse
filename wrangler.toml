@@ -2,3 +2,10 @@ name = "synapse"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = ".vercel/output/static"
+
+[vars]
+R2_PUBLIC_URL = "https://pub-4b39ab3392a84f82b2c02c7319ffecd0.r2.dev"
+
+[[r2_buckets]]
+binding = "FILES_BUCKET"
+bucket_name = "synapse-files"
