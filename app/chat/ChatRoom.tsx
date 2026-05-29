@@ -30,7 +30,7 @@ function Avatar({ email }: { email: string }) {
   const gradient = AVATAR_GRADIENTS[email.charCodeAt(0) % AVATAR_GRADIENTS.length];
   return (
     <div
-      className={`bg-gradient-to-br ${gradient} h-9 w-9 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-lg ring-2 ring-white/10`}
+      className={`bg-linear-to-br ${gradient} h-9 w-9 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-lg ring-2 ring-white/10`}
     >
       {initials}
     </div>
@@ -309,13 +309,13 @@ export default function ChatRoom({
   return (
     <div className="relative flex flex-col flex-1 h-full min-h-0 overflow-hidden">
       {/* ambient gradient backdrop */}
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-violet-600/10 via-background to-background" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-linear-to-b from-violet-600/10 via-background to-background" />
       <div className="pointer-events-none absolute -top-24 left-1/3 -z-10 h-72 w-72 rounded-full bg-violet-600/20 blur-3xl" />
       <div className="pointer-events-none absolute top-1/2 right-0 -z-10 h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl" />
 
       {/* channel header */}
       <div className="border-b border-white/10 px-6 sm:px-8 py-4 flex items-center gap-3 shrink-0 bg-white/5 backdrop-blur-xl">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 text-white font-bold shadow-lg">
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-violet-500 to-indigo-600 text-white font-bold shadow-lg">
           #
         </span>
         <div className="flex flex-col">
@@ -328,7 +328,7 @@ export default function ChatRoom({
       <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-6 space-y-1 min-h-0">
         {allMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/20 to-indigo-500/20 text-3xl">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-violet-500/20 to-indigo-500/20 text-3xl">
               💬
             </div>
             <p className="text-sm font-medium">#{channel.name} へようこそ</p>
@@ -371,7 +371,7 @@ export default function ChatRoom({
                     <div
                       className={`relative px-4 py-2.5 text-sm leading-relaxed shadow-sm transition-shadow ${
                         isMe
-                          ? 'bg-gradient-to-br from-violet-500 to-indigo-600 text-white rounded-2xl rounded-tr-md shadow-violet-500/25'
+                          ? 'bg-linear-to-br from-violet-500 to-indigo-600 text-white rounded-2xl rounded-tr-md shadow-violet-500/25'
                           : 'bg-white/8 backdrop-blur-md border border-white/10 text-foreground rounded-2xl rounded-tl-md'
                       }`}
                     >
@@ -562,7 +562,7 @@ export default function ChatRoom({
             type="submit"
             disabled={!body.trim() || sending}
             size="sm"
-            className="h-9 w-9 p-0 shrink-0 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 hover:from-violet-400 hover:to-indigo-500 text-white shadow-lg shadow-violet-500/25 disabled:opacity-30 disabled:shadow-none"
+            className="h-9 w-9 p-0 shrink-0 rounded-xl bg-linear-to-br from-violet-500 to-indigo-600 hover:from-violet-400 hover:to-indigo-500 text-white shadow-lg shadow-violet-500/25 disabled:opacity-30 disabled:shadow-none"
           >
             <Send className="h-4 w-4" />
           </Button>
