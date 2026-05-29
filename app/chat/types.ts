@@ -4,6 +4,12 @@ export type Channel = {
   created_at: string;
 };
 
+export type Reaction = {
+  emoji: string;
+  reader_id: string;
+  reader_email: string;
+};
+
 export type Message = {
   id: string;
   channel_id: string;
@@ -14,4 +20,17 @@ export type Message = {
   file_name: string | null;
   file_size: number | null;
   created_at: string;
+  edited_at: string | null;
+  reactions: Reaction[];
+};
+
+export type ChannelRead = {
+  reader_id: string;
+  reader_email: string;
+  last_read_at: string;
+};
+
+export type ChatPayload = {
+  messages: Message[];
+  reads: ChannelRead[];
 };

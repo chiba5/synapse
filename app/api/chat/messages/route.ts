@@ -1,5 +1,6 @@
 import { getServiceClient } from '@/lib/supabase';
 import { getAuth } from '@/lib/auth';
+import { getChannelPayload } from '@/lib/chat';
 
 export const runtime = 'edge';
 
@@ -12,23 +13,8 @@ export async function GET(req: Request) {
   if (!channelId) return new Response('channel_id required', { status: 400 });
 
   const db = getServiceClient();
-  const { data, error } = await db
-    .from('messages')
-    .select('*, profiles(email)')
-    .eq('channel_id', channelId)
-    .order('created_at', { ascending: true })
-    .limit(50);
-
-  if (error) return new Response(error.message, { status: 500 });
-
-  // Flatten: add sender_email from profiles join
-  const messages = (data ?? []).map((m: any) => ({
-    ...m,
-    sender_email: m.profiles?.email ?? m.sender_id,
-    profiles: undefined,
-  }));
-
-  return Response.json(messages);
+  const payload = await getChannelPayload(db, channelId);
+  return Response.json(payload);
 }
 
 export async function POST(req: Request) {
@@ -60,6 +46,7 @@ export async function POST(req: Request) {
     ...inserted,
     sender_email: (inserted as any).profiles?.email ?? auth.email,
     profiles: undefined,
+    reactions: [],
   };
 
   return Response.json(message, { status: 201 });

@@ -1,14 +1,15 @@
 import { getServiceClient } from '@/lib/supabase';
-import { getCurrentEmail } from '@/lib/user';
+import { getAuth } from '@/lib/auth';
+import { getChannelPayload } from '@/lib/chat';
 import { redirect } from 'next/navigation';
 import ChatRoom from './ChatRoom';
-import type { Channel, Message } from './types';
+import type { Channel } from './types';
 
 export const runtime = 'edge';
 
 export default async function ChatPage() {
-  const email = await getCurrentEmail().catch(() => null);
-  if (!email) redirect('/');
+  const auth = await getAuth().catch(() => null);
+  if (!auth) redirect('/');
 
   const db = getServiceClient();
 
@@ -27,25 +28,16 @@ export default async function ChatPage() {
     );
   }
 
-  const { data: messages } = await db
-    .from('messages')
-    .select('*, profiles(email)')
-    .eq('channel_id', channel.id)
-    .order('created_at', { ascending: true })
-    .limit(50);
-
-  const initialMessages: Message[] = (messages ?? []).map((m: any) => ({
-    ...m,
-    sender_email: m.profiles?.email ?? '',
-    profiles: undefined,
-  }));
+  const { messages, reads } = await getChannelPayload(db, channel.id);
 
   return (
     <main className="flex flex-1 overflow-hidden">
       <ChatRoom
         channel={channel}
-        initialMessages={initialMessages}
-        currentEmail={email}
+        initialMessages={messages}
+        initialReads={reads}
+        currentEmail={auth.email}
+        currentId={auth.profile.id}
       />
     </main>
   );
