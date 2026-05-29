@@ -37,7 +37,7 @@ export async function POST(req: Request) {
       file_name: file_name || null,
       file_size: file_size || null,
     })
-    .select('*, profiles(email)')
+    .select('*, profiles!messages_sender_id_fkey(email)')
     .single();
 
   if (insertError) return new Response(insertError.message, { status: 500 });

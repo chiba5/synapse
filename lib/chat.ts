@@ -10,7 +10,7 @@ export async function getChannelPayload(db: any, channelId: string): Promise<Cha
   // Latest 50, then flip to chronological order
   const { data: rawMessages } = await db
     .from('messages')
-    .select('*, profiles(email)')
+    .select('*, profiles!messages_sender_id_fkey(email)')
     .eq('channel_id', channelId)
     .order('created_at', { ascending: false })
     .limit(50);

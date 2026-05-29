@@ -19,7 +19,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     .update({ body: trimmed, edited_at: new Date().toISOString() })
     .eq('id', id)
     .eq('sender_id', auth.profile.id) // own messages only
-    .select('*, profiles(email)')
+    .select('*, profiles!messages_sender_id_fkey(email)')
     .single();
 
   if (error) return new Response(error.message, { status: 500 });
