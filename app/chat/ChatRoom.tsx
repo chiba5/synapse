@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import useSWR from 'swr';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Send, Paperclip, Smile, Pencil, Trash2, Check, X, Reply, Search } from 'lucide-react';
+import { Send, Paperclip, Smile, Pencil, Trash2, Check, X, Reply, Search, Menu, Copy } from 'lucide-react';
 import { ChatMarkdown } from './ChatMarkdown';
 import type { Channel, Message, ChannelRead, ChatPayload, Reaction, SearchResult } from './types';
 
@@ -98,6 +98,30 @@ function summarizeReactions(reactions: Reaction[], currentId: string) {
   return Array.from(map.entries()).map(([emoji, v]) => ({ emoji, ...v }));
 }
 
+function SheetButton({
+  icon: Icon,
+  label,
+  danger,
+  onClick,
+}: {
+  icon: typeof Reply;
+  label: string;
+  danger?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm active:bg-white/10 ${
+        danger ? 'text-destructive' : 'text-foreground'
+      }`}
+    >
+      <Icon className="h-5 w-5 shrink-0" />
+      <span>{label}</span>
+    </button>
+  );
+}
+
 // find the @mention being typed at the caret, if any
 function activeMention(text: string, caret: number) {
   const before = text.slice(0, caret);
@@ -112,12 +136,14 @@ export default function ChatRoom({
   initialReads,
   currentEmail,
   currentId,
+  onOpenNav,
 }: {
   channel: Channel;
   initialMessages: Message[];
   initialReads: ChannelRead[];
   currentEmail: string;
   currentId: string;
+  onOpenNav?: () => void;
 }) {
   const [allMessages, setAllMessages] = useState<Message[]>(initialMessages);
   const [reads, setReads] = useState<ChannelRead[]>(initialReads);
@@ -129,6 +155,23 @@ export default function ChatRoom({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [pickerId, setPickerId] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+
+  // mobile long-press action sheet
+  const [sheetMsg, setSheetMsg] = useState<Message | null>(null);
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const startPress = useCallback((msg: Message) => {
+    if (typeof window !== 'undefined' && window.innerWidth >= 768) return; // mobile only
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+    pressTimer.current = setTimeout(() => {
+      setSheetMsg(msg);
+      navigator.vibrate?.(10);
+    }, 450);
+  }, []);
+  const cancelPress = useCallback(() => {
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+    pressTimer.current = null;
+  }, []);
 
   // mention autocomplete
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
@@ -447,6 +490,15 @@ export default function ChatRoom({
       {/* channel header */}
       <div className="border-b border-white/10 px-4 sm:px-6 py-4 shrink-0 bg-white/5 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-3xl items-center gap-3">
+          {onOpenNav && (
+            <button
+              onClick={onOpenNav}
+              className="md:hidden h-9 w-9 -ml-1 flex items-center justify-center rounded-xl text-muted-foreground hover:bg-white/10 hover:text-foreground shrink-0"
+              title="チャンネル"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+          )}
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-violet-500 to-indigo-600 text-white font-bold shadow-lg">
             #
           </span>
@@ -545,6 +597,10 @@ export default function ChatRoom({
 
                 <div
                   id={`msg-${msg.id}`}
+                  onTouchStart={() => startPress(msg)}
+                  onTouchMove={cancelPress}
+                  onTouchEnd={cancelPress}
+                  onContextMenu={e => e.preventDefault()}
                   className={`flex gap-3 ${showAvatar ? 'mt-4' : 'mt-1'} ${isMe ? 'flex-row-reverse' : ''}`}
                 >
                   <div className="w-9 shrink-0">{showAvatar && <Avatar email={msg.sender_email} />}</div>
@@ -774,6 +830,67 @@ export default function ChatRoom({
           </form>
         </div>
       </div>
+
+      {/* mobile long-press action sheet */}
+      {sheetMsg && (
+        <div className="md:hidden fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/50 animate-in fade-in" onClick={() => setSheetMsg(null)} />
+          <div className="absolute inset-x-0 bottom-0 rounded-t-3xl border-t border-white/10 bg-popover/95 backdrop-blur-xl p-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl animate-in slide-in-from-bottom duration-200">
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/20" />
+            <div className="flex justify-between gap-1 px-1 pb-3 mb-2 border-b border-white/10">
+              {QUICK_EMOJIS.map(emoji => (
+                <button
+                  key={emoji}
+                  onClick={() => { toggleReaction(sheetMsg.id, emoji); setSheetMsg(null); }}
+                  className="h-11 flex-1 flex items-center justify-center rounded-xl active:bg-white/10 text-2xl active:scale-90 transition-transform"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+
+            <SheetButton
+              icon={Reply}
+              label="返信"
+              onClick={() => {
+                setReplyingTo(sheetMsg);
+                setSheetMsg(null);
+                requestAnimationFrame(() => textareaRef.current?.focus());
+              }}
+            />
+            {sheetMsg.body && (
+              <SheetButton
+                icon={Copy}
+                label="コピー"
+                onClick={() => {
+                  navigator.clipboard?.writeText(sheetMsg.body ?? '');
+                  toast.success('コピーしました');
+                  setSheetMsg(null);
+                }}
+              />
+            )}
+            {sheetMsg.sender_id === currentId && sheetMsg.body && !sheetMsg.file_url && (
+              <SheetButton
+                icon={Pencil}
+                label="編集"
+                onClick={() => {
+                  setEditingId(sheetMsg.id);
+                  setEditBody(sheetMsg.body ?? '');
+                  setSheetMsg(null);
+                }}
+              />
+            )}
+            {sheetMsg.sender_id === currentId && (
+              <SheetButton
+                icon={Trash2}
+                label="削除"
+                danger
+                onClick={() => { setConfirmDeleteId(sheetMsg.id); setSheetMsg(null); }}
+              />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
