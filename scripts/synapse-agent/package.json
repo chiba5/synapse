@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "collect": "tsx index.ts --mode=collect",
-    "poll-jobs": "tsx index.ts --mode=poll-jobs"
+    "poll-jobs": "tsx index.ts --mode=poll-jobs",
+    "archive-chat": "tsx index.ts --mode=archive-chat"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

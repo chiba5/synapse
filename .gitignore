@@ -65,5 +65,6 @@ daily-reports-*.png
 # supabase temp
 supabase/.temp/
 
-# synapse-agent logs
+# synapse-agent logs + local state
 scripts/synapse-agent/logs/
+scripts/synapse-agent/archive-state.json
