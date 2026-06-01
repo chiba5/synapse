@@ -314,20 +314,23 @@ export default function ChatRoom({
       <div className="pointer-events-none absolute top-1/2 right-0 -z-10 h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl" />
 
       {/* channel header */}
-      <div className="border-b border-white/10 px-6 sm:px-8 py-4 flex items-center gap-3 shrink-0 bg-white/5 backdrop-blur-xl">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-violet-500 to-indigo-600 text-white font-bold shadow-lg">
-          #
-        </span>
-        <div className="flex flex-col">
-          <span className="text-base font-bold leading-tight">{channel.name}</span>
-          <span className="text-[11px] text-muted-foreground leading-tight">外部脳チャンネル</span>
+      <div className="border-b border-white/10 px-4 sm:px-6 py-4 shrink-0 bg-white/5 backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-3xl items-center gap-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-violet-500 to-indigo-600 text-white font-bold shadow-lg">
+            #
+          </span>
+          <div className="flex flex-col">
+            <span className="text-base font-bold leading-tight">{channel.name}</span>
+            <span className="text-[11px] text-muted-foreground leading-tight">外部脳チャンネル</span>
+          </div>
         </div>
       </div>
 
       {/* messages */}
-      <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-6 space-y-1 min-h-0">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 min-h-0">
+        <div className="mx-auto w-full max-w-3xl space-y-1">
         {allMessages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
+          <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-muted-foreground">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-violet-500/20 to-indigo-500/20 text-3xl">
               💬
             </div>
@@ -529,13 +532,14 @@ export default function ChatRoom({
           );
         })}
         <div ref={bottomRef} />
+        </div>
       </div>
 
       {/* composer */}
-      <div className="shrink-0 px-6 sm:px-8 pb-5 pt-2">
+      <div className="shrink-0 px-4 sm:px-6 pb-5 pt-2">
         <form
           onSubmit={sendMessage}
-          className="flex gap-2 items-end rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl px-3 py-2 shadow-lg focus-within:border-violet-400/50 focus-within:shadow-violet-500/10 transition-all"
+          className="mx-auto flex w-full max-w-3xl gap-2 items-end rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl px-3 py-2 shadow-lg focus-within:border-violet-400/50 focus-within:shadow-violet-500/10 transition-all"
         >
           <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
           <Button
