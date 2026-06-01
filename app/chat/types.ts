@@ -10,6 +10,13 @@ export type Reaction = {
   reader_email: string;
 };
 
+export type ReplyPreview = {
+  id: string;
+  sender_email: string;
+  body: string | null;
+  file_name: string | null;
+};
+
 export type Message = {
   id: string;
   channel_id: string;
@@ -21,6 +28,8 @@ export type Message = {
   file_size: number | null;
   created_at: string;
   edited_at: string | null;
+  reply_to: string | null;
+  reply_preview?: ReplyPreview | null;
   reactions: Reaction[];
 };
 
@@ -33,4 +42,11 @@ export type ChannelRead = {
 export type ChatPayload = {
   messages: Message[];
   reads: ChannelRead[];
+};
+
+export type SearchResult = {
+  id: string;
+  sender_email: string;
+  body: string | null;
+  created_at: string;
 };

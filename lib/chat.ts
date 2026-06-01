@@ -1,4 +1,4 @@
-import type { Message, ChannelRead, ChatPayload } from '@/app/chat/types';
+import type { Message, ChannelRead, ChatPayload, ReplyPreview } from '@/app/chat/types';
 
 /**
  * Assemble the full chat payload for a channel: latest 50 messages
@@ -45,6 +45,33 @@ export async function getChannelPayload(db: any, channelId: string): Promise<Cha
       byMsg.set(r.message_id, list);
     }
     for (const m of messages) m.reactions = byMsg.get(m.id) ?? [];
+  }
+
+  // Resolve reply previews. Most targets are within the loaded set; fetch any
+  // older ones in a single query.
+  const previewMap = new Map<string, ReplyPreview>();
+  for (const m of messages) {
+    previewMap.set(m.id, { id: m.id, sender_email: m.sender_email, body: m.body, file_name: m.file_name });
+  }
+  const replyTargets = [...new Set(messages.map((m) => m.reply_to).filter(Boolean) as string[])];
+  const missing = replyTargets.filter((id) => !previewMap.has(id));
+  if (missing.length) {
+    const { data: rawTargets } = await db
+      .from('messages')
+      .select('id, body, file_name, profiles!messages_sender_id_fkey(email)')
+      .in('id', missing);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const t of (rawTargets ?? []) as any[]) {
+      previewMap.set(t.id, {
+        id: t.id,
+        sender_email: t.profiles?.email ?? '',
+        body: t.body,
+        file_name: t.file_name,
+      });
+    }
+  }
+  for (const m of messages) {
+    m.reply_preview = m.reply_to ? previewMap.get(m.reply_to) ?? null : null;
   }
 
   const { data: rawReads } = await db

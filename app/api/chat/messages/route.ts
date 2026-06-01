@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   const auth = await getAuth().catch(() => null);
   if (!auth) return new Response('Unauthorized', { status: 401 });
 
-  const { channel_id, body, file_url, file_name, file_size } = await req.json();
+  const { channel_id, body, file_url, file_name, file_size, reply_to } = await req.json();
   if (!channel_id || (!body && !file_url)) {
     return new Response('channel_id and body or file required', { status: 400 });
   }
@@ -36,6 +36,7 @@ export async function POST(req: Request) {
       file_url: file_url || null,
       file_name: file_name || null,
       file_size: file_size || null,
+      reply_to: reply_to || null,
     })
     .select('*, profiles!messages_sender_id_fkey(email)')
     .single();
