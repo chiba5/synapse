@@ -61,6 +61,10 @@ public/swe-worker-*.js
 
 # screenshots
 daily-reports-*.png
+.shots/
+
+# local dev helpers
+start-dev.bat
 
 # supabase temp
 supabase/.temp/
