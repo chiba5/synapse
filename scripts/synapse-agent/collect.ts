@@ -1,24 +1,28 @@
 import { spawnSync } from 'child_process';
 import { XMLParser } from 'fast-xml-parser';
-import { RSS_SOURCES, GITHUB_SOURCES, X_QUERIES } from './sources.js';
+import { RSS_SOURCES, GITHUB_SOURCES, TOPICS } from './sources.js';
+import {
+  parseClassification,
+  passesThreshold,
+  digestSourceUrl,
+  toJstDate,
+  type FeedClassification,
+} from './ingest-logic.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? '';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY ?? '';
 const HOURS_BACK = parseInt(process.env.HOURS_BACK ?? '24', 10);
-const ENABLE_X_SEARCH = process.env.ENABLE_X_SEARCH === 'true';
+const MIN_SCORE = parseInt(process.env.MIN_SCORE ?? '40', 10);
+const X_DIGEST_SCORE = parseInt(process.env.X_DIGEST_SCORE ?? '90', 10);
 
 type IngestItem = {
   source: 'rss' | 'web_search' | 'x';
   source_url?: string;
   title: string;
   body?: string;
-};
-
-type Classification = {
-  summary: string;
-  category: 'practical' | 'knowledge' | 'claude_runnable';
-  claude_runnable: boolean;
+  topic?: string;
+  score?: number;
 };
 
 const xmlParser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
@@ -150,21 +154,26 @@ function searchX(query: string): IngestItem[] {
   }
 }
 
-async function classify(item: IngestItem): Promise<Classification> {
+async function classify(item: IngestItem): Promise<FeedClassification> {
   const excerpt = (item.body ?? '').slice(0, 500);
-  const prompt = `以下のAI・技術ニュース記事を2〜3文で日本語要約し、カテゴリを判定してください。
+  const topicList = TOPICS.map(t => t.name).join(' / ');
+  const prompt = `以下のAI・技術ニュース記事を日本語で2〜3文に要約し、カテゴリと「関心度スコア」を判定してください。
+
+関心トピック（このどれかに近いほど高スコア）: ${topicList}
 
 タイトル: ${item.title}
 URL: ${item.source_url ?? 'N/A'}
 本文（抜粋）: ${excerpt}
 
 以下のJSONのみ返してください（他のテキスト不要）:
-{"summary":"2〜3文の日本語要約","category":"practical|knowledge|claude_runnable","claude_runnable":true|false}
+{"summary":"2〜3文の日本語要約","category":"practical|knowledge|claude_runnable","claude_runnable":true|false,"score":0〜100の整数}
 
 カテゴリ定義:
 - practical: 実務・開発ですぐ使える（APIリリース、ツール公開など）
 - claude_runnable: Claude Codeで今すぐ試せる実装例・コード・機能
-- knowledge: 知識・トレンド・研究として知っておくべき内容`;
+- knowledge: 知識・トレンド・研究として知っておくべき内容
+
+スコア定義: 関心トピックに具体的に刺さるほど高く、無関係・抽象的なほど低く。`;
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -182,26 +191,15 @@ URL: ${item.source_url ?? 'N/A'}
   });
 
   if (!res.ok) {
-    return { summary: item.title, category: 'knowledge', claude_runnable: false };
+    return { summary: item.title, category: 'knowledge', claude_runnable: false, score: 0 };
   }
 
   const data = await res.json() as { content: Array<{ type: string; text: string }> };
   const text = data.content?.[0]?.type === 'text' ? data.content[0].text : '';
-
-  try {
-    const parsed = JSON.parse(text);
-    const validCategories = ['practical', 'knowledge', 'claude_runnable'];
-    return {
-      summary: String(parsed.summary ?? ''),
-      category: (validCategories.includes(parsed.category) ? parsed.category : 'knowledge') as Classification['category'],
-      claude_runnable: Boolean(parsed.claude_runnable),
-    };
-  } catch {
-    return { summary: item.title, category: 'knowledge', claude_runnable: false };
-  }
+  return parseClassification(text, item.title);
 }
 
-async function upsertItem(item: IngestItem, cl: Classification): Promise<'saved' | 'skipped' | 'error'> {
+async function upsertItem(item: IngestItem, cl: FeedClassification): Promise<'saved' | 'skipped' | 'error'> {
   const record = {
     source: item.source,
     source_url: item.source_url ?? null,
@@ -210,6 +208,8 @@ async function upsertItem(item: IngestItem, cl: Classification): Promise<'saved'
     summary: cl.summary,
     category: cl.category,
     claude_runnable: cl.claude_runnable,
+    score: item.score ?? cl.score,
+    topic: item.topic ?? null,
   };
 
   const res = await fetch(
@@ -286,10 +286,14 @@ export async function runCollect() {
   console.log(`[collect] ${all.length} raw → ${deduped.length} unique`);
   if (deduped.length === 0) { console.log('[collect] Nothing to ingest'); return; }
 
-  let saved = 0, skipped = 0, failed = 0;
+  let saved = 0, skipped = 0, failed = 0, dropped = 0;
   for (const item of deduped) {
     try {
       const cl = await classify(item);
+      if (!passesThreshold(cl.score, MIN_SCORE)) {
+        dropped++;
+        continue;
+      }
       const result = await upsertItem(item, cl);
       if (result === 'saved') saved++;
       else if (result === 'skipped') skipped++;
@@ -300,5 +304,5 @@ export async function runCollect() {
     }
   }
 
-  console.log(`[collect] Done — saved=${saved} skipped=${skipped} failed=${failed}`);
+  console.log(`[collect] RSS/GitHub Done — saved=${saved} skipped=${skipped} dropped=${dropped} failed=${failed}`);
 }
