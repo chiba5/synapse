@@ -127,6 +127,7 @@ npm run dev
 - `.env.local` は `.gitignore` 済み（`.env*` パターン）
 - `setupDevPlatform()` は Windows で `await` すると hang する → `next.config.mjs` で fire-and-forget 化済み
 - `getServiceClient()` は `getRequestContext()` → `process.env` の順でフォールバック
+- **dev サーバは Claude 経由で起動すると刈られる（確定 2026-06-15）**: `run_in_background` でも `!npm run dev` でも、Claude のタスク管理に紐づくと数秒〜十数秒で `next dev` が graceful shutdown（exit 0）する。**ユーザ自身がタスクバーから独立ターミナルを開いて `npm run dev`** すれば刈られない（`start-dev.bat` も用意・gitignore 済み）。Claude 側で一時的に立てたい時は `explorer.exe start-dev.bat` でジョブから切り離す手もあるが不安定。**画面確認はヘッドレス Chrome（`chrome.exe --headless=new --screenshot`）を 1 コマンド内で「起動→撮影→停止」が確実**。dev では `middleware.ts` が全リクエストに `x-user-email`（`DEV_USER_EMAIL` 既定 `dev@example.com`）を付与するので curl でも API が通る
 
 ### サーバー/クライアント境界のルール
 
@@ -165,6 +166,7 @@ npm run dev
 - **チャット機能（`/chat`）完成**（2026-06-01）: テーブル `channels` / `messages` / `message_reactions` / `channel_reads`（`messages.edited_at` / `reply_to` 含む）。機能: 既読（2人運用・相手の last_read_at 基準で ✓✓+時刻）・編集（edited_at ラベル）・hard delete・絵文字リアクション・Markdown/コードブロック（`ChatMarkdown`、`@mention` ハイライト remark プラグイン）・引用リプライ・全文検索（`/api/chat/search`、ILIKE。FTS は日本語トークナイザ無し）・**マルチチャンネル**（`ChatShell` + `ChannelSidebar`、Discord 風、`#general` 保護）。デザインはグラスモーフィズム + グラデ（Tailwind v4 `bg-linear-*`）
 - **チャット vault 自動保存**（2026-06-01）: `synapse-agent --mode=archive-chat` → `vault/synapse-chat/<channel>/YYYY-MM.md`（JST 日付グルーピング）。冪等性は各メッセージ末尾の `<!-- mid:<id> -->` マーカーで担保（state ファイル `archive-state.json` は高速化キャッシュ）。**Task Scheduler `Synapse Archive Chat` 毎朝 06:05 登録済み**
 - **チャンネル rename/削除 + Discord 風モバイル UX**（2026-06-01・commit f937537）: `PATCH /api/chat/channels/[id]`（rename、`#general` 保護、同名 409）追加。サイドバーの削除/編集アイコンは**ホバー専用 (`opacity-0 group-hover`) だと touch で永遠に出ない**ため常時表示 (`opacity-60`) に修正。モバイルは Discord 風 **peek ドロワー**（`ChatShell`：サイドバーを下層に置きチャット面を `translateX` でスライド、指追従ドラッグ＋方向ロック、`touch-action: pan-y`）＋ **メッセージ長押しボトムシート**（450ms、リアクション/返信/コピー/編集/削除）。**トレードオフ**: `touch-pan-y` によりモバイルではコードブロックの横スクロールが効かない
+- **統合アーカイブページ `/archive`**（2026-06-15・merge 695e086 push 済み）: 日報・ニュース・ノートを 1 か所に集約（チャット除外）。**一覧(日付グルーピング)↔暦(月グリッド)** トグル（localStorage 記憶）＋タイプ絞り込みチップ＋横断 ILIKE 検索＋category 絞り込み(一覧のみ)。クリックは **ニュース→外部URL / 日報・ノート→インライン全文展開**（`/api/archive/item`）。**新規 DB マイグレ無し**（既存3テーブルをアプリ側でマージ、`reads.item_type` 流用）。`GET /api/archive?view=list|calendar`。純粋ロジック（JST変換・マージ・暦集計・グリッド生成）は `lib/archive.ts` に分離し **vitest で TDD（`lib/archive.test.ts`・16 tests）**。検索の `.or()` はカンマ/括弧を除去して 500 回避。設計書/計画: `docs/superpowers/{specs,plans}/2026-06-15-archive-page*.md`。**vitest 導入**（`tsconfig` exclude に `**/*.test.ts`・`vitest.config.ts` を追加して CF Pages ビルド保護）
 
 ### 齋藤蓮 CF Access 招待
 完了（2026-05-19）。"Allow Team" ポリシー（chuangtaiqianye@gmail.com + anikimcrenn@gmail.com）に更新済み。
