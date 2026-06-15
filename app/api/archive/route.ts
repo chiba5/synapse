@@ -98,7 +98,8 @@ async function listResponse(
     const { data: reads } = await db.from('reads')
       .select('item_type, item_id')
       .eq('user_id', profileId)
-      .in('item_id', ids);
+      .in('item_id', ids)
+      .in('item_type', ['daily_report', 'feed_item', 'note']);
     const readSet = new Set((reads ?? []).map(r => `${r.item_type}:${r.item_id}`));
     applyReadState(page, readSet);
   }
