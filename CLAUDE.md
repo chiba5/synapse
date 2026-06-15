@@ -141,6 +141,10 @@ npm run dev
 - `app/layout.tsx` には必ず `export const runtime = 'edge'` が必要
 - `tsconfig.json` の `include: ["**/*.ts"]` は `scripts/synapse-agent/` も拾う → CF Pages ビルドが agent 依存パッケージ（fast-xml-parser 等）を見つけられず失敗する → `exclude` に `"scripts/synapse-agent"` を追加（確定 2026-05-24）
 
+### Tailwind v4 / PostgREST の落とし穴（確定 2026-06-01）
+- **Tailwind v4 はグラデーション構文が変わった**: `bg-gradient-to-*` → `bg-linear-to-*`。v3 の旧名は**CSS が一切生成されない**（クラスは DOM に付くが無効）。`backdrop-blur` や `bg-white/N` は効くので「効果が中途半端に消える」状態になり気づきにくい。グラデが効かない時は真っ先にこれを疑う
+- **PostgREST の embed 曖昧性**: `messages` と `profiles` の両方に FK を持つ中間テーブル（`message_reactions` 等）を追加すると、PostgREST がそれを junction とみなし `messages → profiles(email)` の埋め込みが「direct FK か junction 経由か」で曖昧になり 500（`Could not embed because more than one relationship was found`）。**対策**: FK を明示して `profiles!messages_sender_id_fkey(email)`（制約名は Postgres インライン FK の自動命名 `<table>_<column>_fkey`）
+
 ### CF Access と XHR/fetch の落とし穴（重要）
 - CF Access はブラウザのナビゲーションリクエストには `cf-access-jwt-assertion` ヘッダーを付けるが、**client component からの fetch/XHR には付けない**
 - ブラウザは `CF_Authorization` クッキーを同一オリジン fetch で送るが、CF Access がそれをヘッダーに変換しない
@@ -158,6 +162,9 @@ npm run dev
 - **Phase 1 notes 完了**（2026-05-19）: `/notes` ページ（タイトル任意・本文必須、一覧・投稿・既読）
 - **本番動作確認済み**（2026-05-19）: Home・日報・ノート 全ページ稼働確認
 - **Phase 2 完了**（2026-05-24）: `/morning` フィード（48件表示・既読化）・synapse-agent（collect / poll-jobs）・Task Scheduler（毎朝 06:00 collect / at logon poll-jobs）・vault/ai-digest archive
+- **チャット機能（`/chat`）完成**（2026-06-01）: テーブル `channels` / `messages` / `message_reactions` / `channel_reads`（`messages.edited_at` / `reply_to` 含む）。機能: 既読（2人運用・相手の last_read_at 基準で ✓✓+時刻）・編集（edited_at ラベル）・hard delete・絵文字リアクション・Markdown/コードブロック（`ChatMarkdown`、`@mention` ハイライト remark プラグイン）・引用リプライ・全文検索（`/api/chat/search`、ILIKE。FTS は日本語トークナイザ無し）・**マルチチャンネル**（`ChatShell` + `ChannelSidebar`、Discord 風、`#general` 保護）。デザインはグラスモーフィズム + グラデ（Tailwind v4 `bg-linear-*`）
+- **チャット vault 自動保存**（2026-06-01）: `synapse-agent --mode=archive-chat` → `vault/synapse-chat/<channel>/YYYY-MM.md`（JST 日付グルーピング）。冪等性は各メッセージ末尾の `<!-- mid:<id> -->` マーカーで担保（state ファイル `archive-state.json` は高速化キャッシュ）。**Task Scheduler `Synapse Archive Chat` 毎朝 06:05 登録済み**
+- **チャンネル rename/削除 + Discord 風モバイル UX**（2026-06-01・commit f937537）: `PATCH /api/chat/channels/[id]`（rename、`#general` 保護、同名 409）追加。サイドバーの削除/編集アイコンは**ホバー専用 (`opacity-0 group-hover`) だと touch で永遠に出ない**ため常時表示 (`opacity-60`) に修正。モバイルは Discord 風 **peek ドロワー**（`ChatShell`：サイドバーを下層に置きチャット面を `translateX` でスライド、指追従ドラッグ＋方向ロック、`touch-action: pan-y`）＋ **メッセージ長押しボトムシート**（450ms、リアクション/返信/コピー/編集/削除）。**トレードオフ**: `touch-pan-y` によりモバイルではコードブロックの横スクロールが効かない
 
 ### 齋藤蓮 CF Access 招待
 完了（2026-05-19）。"Allow Team" ポリシー（chuangtaiqianye@gmail.com + anikimcrenn@gmail.com）に更新済み。
