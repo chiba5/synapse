@@ -60,10 +60,12 @@ RSS/GitHub 系統（補助）
 `supabase/migrations/<ts>_feed_score.sql`：
 
 ```sql
-ALTER TABLE feed_items ADD COLUMN IF NOT EXISTS score INTEGER;   -- 0-100, NULL 可
+ALTER TABLE feed_items ADD COLUMN IF NOT EXISTS score INTEGER NOT NULL DEFAULT 0;  -- 0-100
 ALTER TABLE feed_items ADD COLUMN IF NOT EXISTS topic TEXT;      -- X ダイジェストのトピック名、RSS は NULL
-CREATE INDEX IF NOT EXISTS idx_feed_items_score ON feed_items(score DESC NULLS LAST, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_feed_items_score ON feed_items(score DESC, created_at DESC);
 ```
+
+`score` を `NOT NULL DEFAULT 0` にする理由: NULL を許すと `score DESC NULLS LAST` のキーセット pagination が複雑化する。既存行は 0（フィード下部に沈む。新規収集分は実スコアが付く）。複合キーセット cursor は `(score, created_at)` の両方が非 NULL になり実装が単純。
 
 既存の `idx_feed_items_source_url`（UNIQUE WHERE source_url IS NOT NULL）は維持。
 
