@@ -44,8 +44,13 @@ export default function ArchiveItemCard({
       if (item.url) window.open(item.url, '_blank', 'noopener,noreferrer');
       return;
     }
-    // report / note: インライン展開（初回は全文を取得）
-    if (!expanded && body === null) {
+    // report / note: インライン展開トグル
+    if (expanded) {
+      setExpanded(false);
+      return;
+    }
+    setExpanded(true);
+    if (body === null && !loadingBody) {
       setLoadingBody(true);
       try {
         const res = await fetch(`/api/archive/item?type=${item.type}&id=${item.id}`);
@@ -57,7 +62,6 @@ export default function ArchiveItemCard({
         setLoadingBody(false);
       }
     }
-    setExpanded(v => !v);
   }
 
   const showUnread = !item.is_read;
