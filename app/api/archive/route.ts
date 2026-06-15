@@ -41,6 +41,11 @@ async function listResponse(
   const date = searchParams.get('date'); // 暦の当日パネル用（YYYY-MM-DD）
   const rawQ = (searchParams.get('q') ?? '').trim();
   const q = rawQ ? escapeIlike(rawQ) : null;
+  // PostgREST .or() splits on commas and treats parens as syntax, so strip them
+  // to keep a comma/paren in the query from corrupting the filter (→ 500).
+  // Reports use single-column .ilike and are unaffected. Trade-off: literal
+  // , ( ) aren't searchable in notes/news (acceptable for a 2-person app).
+  const qOr = q ? q.replace(/[(),]/g, ' ').trim() : null;
   const category = searchParams.get('category');
   const day = date ? jstDayRangeUtc(date) : null;
   const fetchLimit = date ? 200 : limit + 1; // 単日は全件、それ以外はページ単位
@@ -66,7 +71,7 @@ async function listResponse(
       .limit(fetchLimit);
     if (day) nq = nq.gte('created_at', day.startUtc).lt('created_at', day.endUtc);
     if (cursor && !date) nq = nq.lt('created_at', cursor);
-    if (q) nq = nq.or(`title.ilike.%${q}%,body.ilike.%${q}%`);
+    if (qOr) nq = nq.or(`title.ilike.%${qOr}%,body.ilike.%${qOr}%`);
     const { data } = await nq;
     for (const n of (data ?? []) as unknown as NoteRow[]) collected.push(normalizeNote(n, false));
   }
@@ -79,7 +84,7 @@ async function listResponse(
     if (day) fq = fq.gte('created_at', day.startUtc).lt('created_at', day.endUtc);
     if (cursor && !date) fq = fq.lt('created_at', cursor);
     if (category) fq = fq.eq('category', category);
-    if (q) fq = fq.or(`title.ilike.%${q}%,body.ilike.%${q}%,summary.ilike.%${q}%`);
+    if (qOr) fq = fq.or(`title.ilike.%${qOr}%,body.ilike.%${qOr}%,summary.ilike.%${qOr}%`);
     const { data } = await fq;
     for (const f of (data ?? []) as unknown as NewsRow[]) collected.push(normalizeNews(f, false));
   }
