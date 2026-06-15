@@ -5,7 +5,7 @@ import {
   slugifyTopic,
   digestSourceUrl,
   toJstDate,
-} from './ingest-logic';
+} from './ingest-logic.js';
 
 describe('parseClassification', () => {
   it('正常な JSON を構造体にする', () => {
