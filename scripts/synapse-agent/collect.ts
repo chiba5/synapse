@@ -121,37 +121,39 @@ async function fetchGithub(url: string): Promise<IngestItem[]> {
     }));
 }
 
-function searchX(query: string): IngestItem[] {
+/** 1 トピックを hermes-x-search（claude -p 経由）で日本語ダイジェスト化。失敗・空なら null。 */
+function collectTopicDigest(topic: { name: string; accounts: string[]; keywords: string }):
+  { item: IngestItem; digest: string } | null {
+  const accounts = topic.accounts.join(' ');
   const prompt =
-    `hermes-x-search ツールで次のクエリを検索し、JSONのみ返してください（説明不要）。\n` +
-    `クエリ: ${query}\n\n` +
-    `返却形式: [{"title":"タイトル","url":"https://...","snippet":"概要"}]\n` +
-    `結果がなければ [] を返してください。`;
+    `hermes-x-search ツールを使い、直近48時間の X 投稿から「${topic.keywords}」に関する` +
+    `具体的で重要な動きを調べてください（特に ${accounts} の発言を重視）。\n` +
+    `結果を日本語で 3〜5 個の箇条書きダイジェストにまとめ、ダイジェスト本文のみ出力してください` +
+    `（前置き・後書き・JSON 不要）。該当が無ければ "NONE" とだけ出力してください。`;
 
   const result = spawnSync('claude', ['-p', prompt], {
     shell: true,
     encoding: 'utf-8',
-    timeout: 30_000,
+    timeout: 60_000,
   });
 
   if (result.error || result.status !== 0) {
-    console.warn(`  [x] spawn error for "${query}":`, result.stderr?.slice(0, 200));
-    return [];
+    console.warn(`  [x] "${topic.name}" spawn error:`, result.stderr?.slice(0, 200));
+    return null;
   }
 
-  try {
-    const match = result.stdout.match(/\[[\s\S]*\]/);
-    if (!match) return [];
-    const parsed = JSON.parse(match[0]) as Array<{ title: string; url: string; snippet?: string }>;
-    return parsed.map(p => ({
-      source: 'x' as const,
-      source_url: p.url,
-      title: p.title,
-      body: p.snippet,
-    }));
-  } catch {
-    return [];
-  }
+  const digest = (result.stdout ?? '').trim();
+  if (!digest || digest === 'NONE' || digest.length < 20) return null;
+
+  const jstDate = toJstDate(new Date().toISOString());
+  const item: IngestItem = {
+    source: 'x',
+    source_url: digestSourceUrl(topic.name, jstDate),
+    title: `【X】${topic.name}`,
+    topic: topic.name,
+    score: X_DIGEST_SCORE,
+  };
+  return { item, digest };
 }
 
 async function classify(item: IngestItem): Promise<FeedClassification> {
@@ -238,8 +240,31 @@ async function upsertItem(item: IngestItem, cl: FeedClassification): Promise<'sa
 export async function runCollect() {
   console.log(`[collect] Starting — ${new Date().toISOString()}`);
 
-  const all: IngestItem[] = [];
+  // ---- 1) X トピック別ダイジェスト（メイン系統・classify を通さない）----
+  let xSaved = 0, xSkipped = 0, xFailed = 0;
+  for (const topic of TOPICS) {
+    const res = collectTopicDigest(topic);
+    if (!res) { console.log(`  [x] ${topic.name}: no digest`); continue; }
+    const cl: FeedClassification = {
+      summary: res.digest,
+      category: 'knowledge',
+      claude_runnable: false,
+      score: X_DIGEST_SCORE,
+    };
+    try {
+      const result = await upsertItem(res.item, cl);
+      if (result === 'saved') { xSaved++; console.log(`  [x] ${topic.name}: saved`); }
+      else if (result === 'skipped') xSkipped++;
+      else xFailed++;
+    } catch (e) {
+      console.warn(`  [x] ${topic.name} upsert error: ${String(e)}`);
+      xFailed++;
+    }
+  }
+  console.log(`[collect] X digests — saved=${xSaved} skipped=${xSkipped} failed=${xFailed}`);
 
+  // ---- 2) RSS / GitHub（補助系統・スコア間引き）----
+  const all: IngestItem[] = [];
   for (const src of RSS_SOURCES) {
     try {
       const items = await fetchRss(src.url);
@@ -249,7 +274,6 @@ export async function runCollect() {
       console.warn(`  [rss] ${src.name} failed:`, String(e));
     }
   }
-
   for (const src of GITHUB_SOURCES) {
     try {
       const items = await fetchGithub(src.url);
@@ -260,21 +284,7 @@ export async function runCollect() {
     }
   }
 
-  if (!ENABLE_X_SEARCH) {
-    console.log('  [x] skipped (ENABLE_X_SEARCH=true で有効化)');
-  }
-
-  for (const query of ENABLE_X_SEARCH ? X_QUERIES : []) {
-    try {
-      const items = searchX(query);
-      console.log(`  [x] "${query.slice(0, 40)}": ${items.length} items`);
-      all.push(...items);
-    } catch (e) {
-      console.warn(`  [x] "${query}" failed:`, String(e));
-    }
-  }
-
-  // URL 重複除去
+  // URL 重複除去（RSS/GitHub のみ）
   const seen = new Set<string>();
   const deduped = all.filter(item => {
     if (!item.source_url) return true;
@@ -283,17 +293,13 @@ export async function runCollect() {
     return true;
   });
 
-  console.log(`[collect] ${all.length} raw → ${deduped.length} unique`);
-  if (deduped.length === 0) { console.log('[collect] Nothing to ingest'); return; }
+  console.log(`[collect] RSS/GitHub ${all.length} raw → ${deduped.length} unique`);
 
   let saved = 0, skipped = 0, failed = 0, dropped = 0;
   for (const item of deduped) {
     try {
       const cl = await classify(item);
-      if (!passesThreshold(cl.score, MIN_SCORE)) {
-        dropped++;
-        continue;
-      }
+      if (!passesThreshold(cl.score, MIN_SCORE)) { dropped++; continue; }
       const result = await upsertItem(item, cl);
       if (result === 'saved') saved++;
       else if (result === 'skipped') skipped++;
@@ -303,6 +309,5 @@ export async function runCollect() {
       failed++;
     }
   }
-
   console.log(`[collect] RSS/GitHub Done — saved=${saved} skipped=${skipped} dropped=${dropped} failed=${failed}`);
 }
