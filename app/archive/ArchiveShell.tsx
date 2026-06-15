@@ -2,11 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import useSWRInfinite from 'swr/infinite';
+import { fetcher } from '@/lib/fetcher';
 import ListView from './ListView';
 import CalendarView from './CalendarView';
 import type { ArchiveItem, ArchiveType, ListResponse } from './types';
-
-const fetcher = (url: string) => fetch(url).then(r => r.json());
 
 const TYPE_CHIPS: Array<{ value: 'all' | ArchiveType; label: string }> = [
   { value: 'all', label: 'すべて' },

@@ -3,10 +3,9 @@
 import { useState } from 'react';
 import useSWR from 'swr';
 import { buildMonthGrid, shiftMonth } from '@/lib/archive';
+import { fetcher } from '@/lib/fetcher';
 import ArchiveItemCard from './ArchiveItemCard';
 import type { ArchiveItem, ArchiveType, CalendarCounts } from './types';
-
-const fetcher = (url: string) => fetch(url).then(r => r.json());
 
 const DOT: Record<ArchiveType, string> = {
   report: 'bg-blue-500', news: 'bg-violet-500', note: 'bg-emerald-500',
@@ -29,10 +28,18 @@ export default function CalendarView({
   );
   const counts = cal?.counts ?? {};
 
-  const { data: dayData } = useSWR<{ data: ArchiveItem[] }>(
+  const { data: dayData, mutate: mutateDay } = useSWR<{ data: ArchiveItem[] }>(
     selectedDay ? `/api/archive?view=list&date=${selectedDay}&type=${type}` : null,
     fetcher,
   );
+
+  function handleRead(id: string) {
+    onRead(id);
+    void mutateDay(
+      d => (d ? { data: d.data.map(i => (i.id === id ? { ...i, is_read: true } : i)) } : d),
+      { revalidate: false },
+    );
+  }
 
   const cells = buildMonthGrid(month);
 
@@ -84,7 +91,7 @@ export default function CalendarView({
             <p className="text-sm text-muted-foreground">この日の項目はありません。</p>
           ) : (
             dayData.data.map(item => (
-              <ArchiveItemCard key={`${item.type}:${item.id}`} item={item} onRead={onRead} />
+              <ArchiveItemCard key={`${item.type}:${item.id}`} item={item} onRead={handleRead} />
             ))
           )}
         </div>
