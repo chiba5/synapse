@@ -10,6 +10,7 @@ const links = [
   { href: '/morning', label: 'Morning' },
   { href: '/daily-reports', label: '日報' },
   { href: '/notes', label: 'ノート' },
+  { href: '/archive', label: 'アーカイブ' },
 ];
 
 export default function Nav() {
