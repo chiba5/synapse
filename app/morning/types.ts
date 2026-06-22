@@ -7,6 +7,8 @@ export type FeedItem = {
   summary: string | null;
   category: 'practical' | 'knowledge' | 'claude_runnable' | null;
   claude_runnable: boolean;
+  score: number;
+  topic: string | null;
   created_at: string;
   is_read: boolean;
 };

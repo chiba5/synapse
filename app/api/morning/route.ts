@@ -1,5 +1,6 @@
 import { getAuth } from '@/lib/auth';
 import { getServiceClient } from '@/lib/supabase';
+import { decodeFeedCursor, encodeFeedCursor } from '@/lib/feed-ingest';
 
 export const runtime = 'edge';
 
@@ -9,17 +10,23 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const limit = Math.min(Number(searchParams.get('limit') ?? '20'), 50);
-  const cursor = searchParams.get('cursor');
+  const cursor = decodeFeedCursor(searchParams.get('cursor'));
 
   const db = getServiceClient();
 
   let query = db
     .from('feed_items')
-    .select('id, source, source_url, title, body, summary, category, claude_runnable, created_at')
+    .select('id, source, source_url, title, body, summary, category, claude_runnable, score, topic, created_at')
+    .order('score', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(limit + 1);
 
-  if (cursor) query = query.lt('created_at', cursor);
+  // キーセット: (score < S) OR (score = S AND created_at < C)
+  if (cursor) {
+    query = query.or(
+      `score.lt.${cursor.score},and(score.eq.${cursor.score},created_at.lt.${cursor.createdAt})`
+    );
+  }
 
   const { data: rows, error } = await query;
   if (error) return Response.json({ error: error.message }, { status: 500 });
@@ -36,7 +43,8 @@ export async function GET(req: Request) {
 
   const readSet = new Set((reads ?? []).map(r => r.item_id));
   const data = page.map(r => ({ ...r, is_read: readSet.has(r.id) }));
-  const nextCursor = hasMore ? page[page.length - 1].created_at : null;
+  const last = page[page.length - 1];
+  const nextCursor = hasMore && last ? encodeFeedCursor(last.score, last.created_at) : null;
 
   return Response.json({ data, nextCursor });
 }

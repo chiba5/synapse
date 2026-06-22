@@ -108,11 +108,21 @@ export default function MorningFeed({
                       {CATEGORY_LABELS[item.category]}
                     </span>
                   )}
+                  {item.topic && (
+                    <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300 border-sky-200 dark:border-sky-800">
+                      {item.topic}
+                    </span>
+                  )}
                   {showUnread && <Badge className="text-xs bg-blue-500 hover:bg-blue-500">未読</Badge>}
                 </div>
-                <time className="text-xs text-muted-foreground shrink-0">
-                  {new Date(item.created_at).toLocaleDateString('ja-JP')}
-                </time>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-xs text-muted-foreground shrink-0 tabular-nums" title="関心度スコア">
+                    ★{item.score}
+                  </span>
+                  <time className="text-xs text-muted-foreground shrink-0">
+                    {new Date(item.created_at).toLocaleDateString('ja-JP')}
+                  </time>
+                </div>
               </div>
 
               {item.source === 'x' && item.source_url && extractTweetId(item.source_url) ? (
@@ -122,7 +132,7 @@ export default function MorningFeed({
               ) : (
                 <>
                   <div>
-                    {item.source_url ? (
+                    {item.source_url && /^https?:\/\//.test(item.source_url) ? (
                       <a
                         href={item.source_url}
                         target="_blank"

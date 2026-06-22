@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getCurrentEmail } from '@/lib/user';
 import { ensureProfile } from '@/lib/profiles';
 import { getServiceClient } from '@/lib/supabase';
+import { encodeFeedCursor } from '@/lib/feed-ingest';
 import MorningFeed from './MorningFeed';
 import type { FeedItem } from './types';
 
@@ -15,7 +16,8 @@ async function getInitialData(profileId: string) {
 
     const { data: rows, error } = await db
       .from('feed_items')
-      .select('id, source, source_url, title, body, summary, category, claude_runnable, created_at')
+      .select('id, source, source_url, title, body, summary, category, claude_runnable, score, topic, created_at')
+      .order('score', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(PAGE_SIZE + 1);
 
@@ -43,10 +45,14 @@ async function getInitialData(profileId: string) {
         summary: (r.summary ?? null) as string | null,
         category: (r.category ?? null) as FeedItem['category'],
         claude_runnable: Boolean(r.claude_runnable),
+        score: Number(r.score ?? 0),
+        topic: (r.topic ?? null) as string | null,
         created_at: r.created_at as string,
         is_read: readSet.has(r.id),
       })),
-      nextCursor: hasMore ? (page[page.length - 1].created_at as string) : null,
+      nextCursor: hasMore
+        ? encodeFeedCursor(Number(page[page.length - 1].score ?? 0), page[page.length - 1].created_at as string)
+        : null,
     };
   } catch {
     return { data: [] as FeedItem[], nextCursor: null };
