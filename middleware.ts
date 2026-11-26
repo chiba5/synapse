@@ -16,6 +16,10 @@ export async function middleware(req: NextRequest) {
   if (url.includes('/api/ingest') || url.includes('/api/jobs')) {
     return NextResponse.next();
   }
+  // time-log の受け取り（POST だけ）も agent token 認証。GET は下の JWT 検証を通す
+  if (req.method === 'POST' && req.nextUrl.pathname === '/api/timelog') {
+    return NextResponse.next();
+  }
 
   // CF Access adds the JWT as a header for navigation requests, but for
   // AJAX/fetch requests it may only set the CF_Authorization cookie instead.

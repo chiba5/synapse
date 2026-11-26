@@ -13,15 +13,19 @@ const links = [
   { href: '/archive', label: 'アーカイブ' },
 ];
 
-export default function Nav() {
+// 時間の記録は本人（TIMELOG_OWNER_EMAIL）にだけ出す。判定はサーバー側の layout で行う
+const timelogLink = { href: '/timelog', label: '時間' };
+
+export default function Nav({ showTimelog = false }: { showTimelog?: boolean }) {
   const pathname = usePathname();
+  const items = showTimelog ? [...links, timelogLink] : links;
   return (
     <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-sm px-4 h-12 flex items-center gap-1">
       <Link href="/" className="flex items-center gap-1.5 mr-4">
         <Brain className="h-4 w-4 text-primary" />
         <span className="text-sm font-semibold tracking-tight">Synapse</span>
       </Link>
-      {links.map(({ href, label }) => (
+      {items.map(({ href, label }) => (
         <Link
           key={href}
           href={href}

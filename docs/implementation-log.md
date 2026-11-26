@@ -38,3 +38,17 @@
 **sources**: `vault/ai-digest/sources.md`（RSS 10 本 + WebSearch クエリ 5 個）を移植。`vault/ai-digest/` は移植完了後 archive。
 
 ---
+
+### 時間の記録 `/timelog`（本人だけ）（2026-11-26）
+
+凍結中だが、本人が見る機能をまとめるアプリ名を Synapse に決めた（`vault/ideas/tech-as-air.md` 11/26）ので最初の 1 枚として追加。time-log（`~/work/life/time-log/`）が毎朝 4:30 に作る前日の表・まとめ・診断を日付ごとに見る。**個人の行動記録なので本人だけ**（齋藤蓮には API でも画面でも 404・導線も出さない）。
+
+- **DB**: `timelog_days`（day DATE PK・table_md・summary_md・diagnosis_html・created/updated_at）。RLS 有効・ポリシー無し（service role だけが触る）。マイグレ `20261126000000_timelog.sql`
+- **入れ口**: `POST /api/timelog`（`checkServiceToken` = `X-Agent-Token`）。day で upsert し、**送られた列だけ更新**（診断を後から足しても表は消えない）。middleware は `POST /api/timelog` だけ JWT 検証を素通し（`/api/*` は CF Access のエッジでは素通しで、認証は middleware が担う）
+- **閲覧**: `GET /api/timelog`・`GET /api/timelog/[day]`・`/timelog`・`/timelog/[day]`。本人判定は `lib/timelog-auth.ts` の `isTimelogViewer()` で **CF Access の JWT を自分で検証**してメールを取り、`TIMELOG_OWNER_EMAIL`（環境変数・未設定なら誰も見られない）と比べる。`x-user-email` ヘッダーはクライアントが付けられるので本人判定に使わない
+- **導線**: `layout.tsx` が判定して `Nav` に `showTimelog` を渡す・ホームのカードも本人だけ
+- **表示**: 表とまとめは `react-markdown` + `remark-gfm`（**クライアントコンポーネント必須**：サーバーで読むと `useState is not exported` でビルドが落ちる）。診断 HTML は `<iframe srcDoc sandbox="">`（スクリプト・同一オリジン扱いを止める）
+- **純粋ロジック**: `lib/timelog.ts`（本人判定・day 検証・payload 検証・見出し/合計時間の抽出）を vitest（`lib/timelog.test.ts`・17 tests）
+- **送り手**: `~/work/life/time-log/push_synapse.py`（`daytable.py` の最後から呼ぶ・失敗しても表づくりは止めない）。鍵は synapse-agent と同じ置き場（`scripts/synapse-agent/` の環境ファイルの `AGENT_TOKEN`）を実行時に読む。送り先は `TIMELOG_SYNAPSE_URL` > `SYNAPSE_URL`（localhost なら無視）> 本番。ログ `time-log/logs/push_synapse.log`
+- **本番に要るもの**: Supabase にマイグレ適用・CF Pages に `TIMELOG_OWNER_EMAIL` 追加・push
+- **既知**: `eslint.config.mjs` が eslint-config-next 15 と合わず `npm run lint` が起動しない（以前から）。今回は FlatCompat の一時設定で変更ファイルだけ検査した

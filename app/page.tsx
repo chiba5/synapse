@@ -3,7 +3,8 @@ import { ensureProfile } from '@/lib/profiles';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Newspaper, BookOpen, Sun, MessageSquare } from 'lucide-react';
+import { Newspaper, BookOpen, Sun, MessageSquare, Clock } from 'lucide-react';
+import { isTimelogViewer } from '@/lib/timelog-auth';
 
 export const runtime = 'edge';
 
@@ -14,9 +15,13 @@ const quickLinks = [
   { href: '/notes', label: 'ノート', desc: 'アイデアをメモ', icon: BookOpen },
 ];
 
+// 本人（TIMELOG_OWNER_EMAIL）にだけ出す導線
+const timelogLink = { href: '/timelog', label: '時間の記録', desc: '前日の過ごし方', icon: Clock };
+
 export default async function Home() {
   const email = await getCurrentEmail().catch(() => null);
   if (email) await ensureProfile(email).catch(() => null);
+  const links = (await isTimelogViewer().catch(() => false)) ? [...quickLinks, timelogLink] : quickLinks;
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-8 p-8">
       <div className="text-center space-y-2">
@@ -29,7 +34,7 @@ export default async function Home() {
         )}
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full max-w-2xl">
-        {quickLinks.map(({ href, label, desc, icon: Icon }) => (
+        {links.map(({ href, label, desc, icon: Icon }) => (
           <Button key={href} variant="outline" className="h-auto p-0" asChild>
             <Link href={href}>
               <Card className="w-full border-0 shadow-none hover:bg-secondary/60 transition-colors">
